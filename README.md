@@ -2,7 +2,7 @@
 
 JWT authentication system built with Node.js and Express. Register, login, protected routes — the full stateless auth flow.
 
-The server signs a token at login using a secret key. The client stores it and sends it with every protected request. The server verifies the signature mathematically — nothing stored server-side after login.
+The server signs a token at login using a secret key. The client stores it and sends it with every protected request. The server verifies the signature mathematically (nothing stored server-side) after login.
 
 ## Setup
 
