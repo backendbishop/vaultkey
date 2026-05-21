@@ -1,17 +1,19 @@
 {
   "name": "vaultkey",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "JWT authentication system for Express. Register, login, protected routes.",
+  "main": "src/index.js",
   "scripts": {
+    "start": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["jwt", "authentication", "express"],
+  "author": "Simon Kimeu",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "dotenv": "^16.5.0",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3"
   }
