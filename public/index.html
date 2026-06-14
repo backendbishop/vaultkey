@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vaultkey Demo</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0f1115;
+    --panel: #1a1d24;
+    --border: #2a2e37;
+    --text: #e6e8eb;
+    --muted: #9aa1ac;
+    --accent: #4f8cff;
+    --error: #ff6b6b;
+    --success: #4fd17f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 1rem;
+    max-width: 480px;
+    margin-inline: auto;
+  }
+  h1 { font-size: 1.4rem; margin: 0.5rem 0 1rem; }
+  .tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+  }
+  .tab {
+    flex: 1;
+    padding: 0.6rem;
+    text-align: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .tab.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .panel {
+    display: none;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .panel.active { display: block; }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0.75rem 0 0.25rem;
+  }
+  input {
+    width: 100%;
+    padding: 0.6rem;
+    background: #0c0e12;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 1rem;
+  }
+  button {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.7rem;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:active { opacity: 0.85; }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    margin-top: 0.5rem;
+  }
+  .result {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+    display: none;
+  }
+  .result.show { display: block; }
+  .result.ok { background: rgba(79, 209, 127, 0.1); border: 1px solid var(--success); color: var(--success); }
+  .result.err { background: rgba(255, 107, 107, 0.1); border: 1px solid var(--error); color: var(--error); }
+  .status {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+  }
+  .token-indicator {
+    font-size: 0.8rem;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem;
+    border-radius: 6px;
+    background: #0c0e12;
+    color: var(--muted);
+  }
+  .token-indicator.has-token { color: var(--success); }
+</style>
+</head>
+<body>
+  <h1>Vaultkey</h1>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="register">Register</div>
+    <div class="tab" data-tab="login">Login</div>
+    <div class="tab" data-tab="profile">Profile</div>
+  </div>
+
+  <div class="panel active" id="panel-register">
+    <label for="reg-email">Email</label>
+    <input id="reg-email" type="email" autocomplete="email" placeholder="you@example.com" />
+    <label for="reg-password">Password</label>
+    <input id="reg-password" type="password" autocomplete="new-password" placeholder="min 8 characters" />
+    <button id="reg-submit">Register</button>
+    <div class="result" id="reg-result"></div>
+  </div>
+
+  <div class="panel" id="panel-login">
+    <label for="login-email">Email</label>
+    <input id="login-email" type="email" autocomplete="email" placeholder="you@example.com" />
+    <label for="login-password">Password</label>
+    <input id="login-password" type="password" autocomplete="current-password" placeholder="password" />
+    <button id="login-submit">Login</button>
+    <div class="result" id="login-result"></div>
+  </div>
+
+  <div class="panel" id="panel-profile">
+    <div class="token-indicator" id="token-indicator">No token stored</div>
+    <button id="profile-submit">Fetch Profile</button>
+    <button class="secondary" id="clear-token">Clear Token</button>
+    <div class="result" id="profile-result"></div>
+    <div class="status">
+      Try this: register &rarr; login &rarr; fetch profile (200). Then clear the token
+      and fetch profile again (401).
+    </div>
+  </div>
+
+<script>
+  // In-memory only — cleared on page reload. Intentional: demonstrates
+  // stateless JWT auth without persisting credentials in the browser.
+  let token = null;
+
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.panel');
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      tabs.forEach((t) => t.classList.remove('active'));
+      panels.forEach((p) => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+      if (tab.dataset.tab === 'profile') updateTokenIndicator();
+    });
+  });
+
+  function showResult(el, ok, data) {
+    el.textContent = JSON.stringify(data, null, 2);
+    el.className = 'result show ' + (ok ? 'ok' : 'err');
+  }
+
+  function updateTokenIndicator() {
+    const indicator = document.getElementById('token-indicator');
+    if (token) {
+      indicator.textContent = 'Token stored (' + token.slice(0, 20) + '...)';
+      indicator.classList.add('has-token');
+    } else {
+      indicator.textContent = 'No token stored';
+      indicator.classList.remove('has-token');
+    }
+  }
+
+  async function postJson(url, body) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    return { ok: res.ok, status: res.status, data: data };
+  }
+
+  document.getElementById('reg-submit').addEventListener('click', async () => {
+    const email = document.getElementById('reg-email').value;
+    const password = document.getElementById('reg-password').value;
+    const resultEl = document.getElementById('reg-result');
+    try {
+      const r = await postJson('/auth/register', { email: email, password: password });
+      showResult(resultEl, r.ok, r.data);
+    } catch (err) {
+      showResult(resultEl, false, { error: 'Network error' });
+    }
+  });
+
+  document.getElementById('login-submit').addEventListener('click', async () => {
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    const resultEl = document.getElementById('login-result');
+    try {
+      const r = await postJson('/auth/login', { email: email, password: password });
+      showResult(resultEl, r.ok, r.data);
+      if (r.ok && r.data.token) {
+        token = r.data.token;
+      }
+    } catch (err) {
+      showResult(resultEl, false, { error: 'Network error' });
+    }
+  });
+
+  document.getElementById('profile-submit').addEventListener('click', async () => {
+    const resultEl = document.getElementById('profile-result');
+    try {
+      const headers = {};
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      const res = await fetch('/profile', { headers: headers });
+      const data = await res.json();
+      showResult(resultEl, res.ok, data);
+    } catch (err) {
+      showResult(resultEl, false, { error: 'Network error' });
+    }
+  });
+
+  document.getElementById('clear-token').addEventListener('click', () => {
+    token = null;
+    updateTokenIndicator();
+    document.getElementById('profile-result').className = 'result';
+  });
+
+  updateTokenIndicator();
+</script>
+</body>
+</html>
